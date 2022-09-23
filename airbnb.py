@@ -8,61 +8,112 @@ import pandas as pd
 import re
 
 # Operando o Selenium
-options = Options()
-options.add_argument('window-size=maximized')  # Especifica as dimensões da janela aberta
-options.add_experimental_option("detach", True) # Manter o Chrome aberto
-## options.add_argument('--headless')  # Realiza a rotina sem abrir o navegador
+def config_inicial():
 
-# Indicando a automação do Chrome 
-navegador = webdriver.Chrome(options=options)
-navegador.get('https://www.airbnb.com')
+	options = Options()
+	options.add_argument('window-size=maximized')  # Especifica as dimensões da janela aberta
+	options.add_experimental_option("detach", True) # Manter o Chrome aberto
+	## options.add_argument('--headless')  # Realiza a rotina sem abrir o navegador
 
+	return options
+
+def conecta_navegador(options):
+
+	# Indicando a automação do Chrome 
+	navegador = webdriver.Chrome(options=options)
+	navegador.get('https://www.airbnb.com')
+
+	return navegador
+
+def raspagem_dados(topico, classe):
+	return hospedagem.find(topico, class_=classe).get_text()
+
+def retorna_hospedagem_url():
+	hospedagem_url = hospedagem.find('meta', attrs={'itemprop': 'url'})
+	hospedagem_url = hospedagem_url['content'] 
+	print('Descrição:', hospedagem_descricao)
+	print('Detalhes:', hospedagem_detalhes)
+
+	return hospedagem_url
+
+def formata_valor():
+	print('Valor:', valor_regex)
+	print('Avaliação:', hospedagem_avaliacao)
+	return  re.search("R\$(\d{1,})", hospedagem_valor).group(1)
+
+def cria_xlsx():
+	dados_hospedagens = [] 
+	dados_hospedagens.append([hospedagem_descricao,
+							  hospedagem_detalhes,
+							  valor_regex, 
+							  hospedagem_avaliacao, 
+							  hospedagem_url])
+							  
+	dados = pd.DataFrame(dados_hospedagens, columns=['Descrição', 
+													'Detalhes', 
+													'Valor', 
+													'Avaliação', 
+													'URL'])
+
+	dados.to_excel('hospedagens.xlsx', index=False)
+
+def clica_busca(navegador):
+# Indentificando o botão de busca
+	button = navegador.find_element(By.TAG_NAME, "button")
+	button.click()
+
+def input_cidade(navegador, cidade):
+
+	# Identificando o input e enviando a busca desejada
+	input_place = navegador.find_element(By.XPATH, "//*[@id='bigsearch-query-location-input']")
+	input_place.send_keys(cidade)
+	input_place.submit()
+
+def integra_beautifulsoup(navegador):
+	headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36'}
+	page_content = navegador.page_source
+	site = BeautifulSoup(page_content, 'html.parser')
+
+	return site
+
+def identifica_anuncio(site_entrada):
+	site_saida = site_entrada.findAll('div', attrs={'itemprop': 'itemListElement'})
+
+	return site_saida
+
+options = config_inicial()
+
+navegador = conecta_navegador(options)
 # Indica quantos segundos aguarda para continuar executando o código
 sleep(10)
 
-# Indentificando o botão de busca
-button = navegador.find_element(By.TAG_NAME, "button")
-button.click()
+clica_busca(navegador)
 
 sleep(3)
 
-# Identificando o input e enviando a busca desejada
-input_place = navegador.find_element(By.XPATH, "//*[@id='bigsearch-query-location-input']")
-input_place.send_keys('Rio de Janeiro')
-input_place.submit()
+input_cidade(navegador, 'Rio de Janeiro')
 
 sleep(3)
 
 # Integração com o BeautifulSoup
-headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36'}
-page_content = navegador.page_source
-site = BeautifulSoup(page_content, 'html.parser')
-
-# Criação de uma lista a ser preenchida futuramente com um dataframe
-dados_hospedagens = [] 
+site = integra_beautifulsoup(navegador)
 
 # Identificação do atributo raiz do anúncio
-hospedagens = site.findAll('div', attrs={'itemprop': 'itemListElement'})
+hospedagens = identifica_anuncio(site)
 
 # Automação da busca das hospedagens 
 for hospedagem in hospedagens:
-	hospedagem_descricao = hospedagem.find('span', class_='tjbvqj3 dir dir-ltr').get_text()
-	hospedagem_detalhes = hospedagem.find('span', class_='dir dir-ltr').get_text()
-	hospedagem_valor = hospedagem.find('div', class_='p11pu8yw dir dir-ltr').get_text()
-	hospedagem_url = hospedagem.find('meta', attrs={'itemprop': 'url'})
-	hospedagem_avaliacao = hospedagem.find('span', class_='ru0q88m dir dir-ltr').get_text()
+	hospedagem_descricao = raspagem_dados('span', 'tjbvqj3 dir dir-ltr')
+	hospedagem_detalhes = raspagem_dados('span', 'dir dir-ltr')
+	hospedagem_valor = raspagem_dados('div', 'p11pu8yw dir dir-ltr')
+	hospedagem_avaliacao = raspagem_dados('span', 'ru0q88m dir dir-ltr')
+	hospedagem_url = retorna_hospedagem_url()
 
-	print('Descrição:', hospedagem_descricao)
-	print('Detalhes:', hospedagem_detalhes)
 
-	# Regex para formatar a apresentação do valor
-	valor_regex = re.search("R\$(\d{1,})", hospedagem_valor).group(1)
+	valor_regex = formata_valor()
 
-	print('Valor:', valor_regex)
-	print('Avaliação:', hospedagem_avaliacao)
+	# Adicionar a informação dentro do atributo content
 
-	#Adicionar a informação dentro do atributo content
-	hospedagem_url = hospedagem_url['content'] 
 	print('URL:', hospedagem_url)
 	
 	# Utilizado para quebra de linhas
@@ -70,10 +121,10 @@ for hospedagem in hospedagens:
 
 
 	# Criação do DataFrame
-	dados_hospedagens.append([hospedagem_descricao, hospedagem_detalhes, valor_regex, hospedagem_avaliacao, hospedagem_url])
+	
+cria_xlsx()
 
-# Criação do .xlsx
-dados = pd.DataFrame(dados_hospedagens, columns=['Descrição', 'Detalhes', 'Valor', 'Avaliação', 'URL'])
-dados.to_excel('hospedagens.xlsx', index=False)
+
+
 
 
