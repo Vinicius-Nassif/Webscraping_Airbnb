@@ -18,7 +18,7 @@ class WebScraping():
 		# Inicializando objetos
 		self.site = None
 		self.navegador = None
-		#self.hospedagens = None
+		self.hospedagens = None
 		self.dados_hospedagens = []
 
 		# Expecifica configurações de inicialização do navegador -- Selenium
@@ -37,27 +37,26 @@ class WebScraping():
 		print('get_url executado com sucesso')
 		#	2. Buscar pelo botão de pesquisa
 		self.clica_busca()
-		print('clica_busca executado com sucesso')
+		print('clica_busca executada com sucesso')
 		#	3. Pesquisar pela cidade desejada
 		self.input_cidade()
 		print('input_cidade executado com sucesso')
 		#	4. Laço de paginação
-		botao_existe = True
-		while botao_existe is True:
+		botao_prox_pag = True
+		while botao_prox_pag is True:
 
 			#	5. Interpretar o HTML da página
 			self.integracao_bs()
 			print('integracao_bs executado com sucesso')
 			#	6. Listar anúncios da página atual
-			hospedagens = self.identifica_anuncio() 
+			self.identifica_anuncio() 
 			print('identifica_anuncio executado com sucesso:')
-			print()
 			#	7. Extração de dados dos anúncios
-			self.raspagem_dados(hospedagens)
-			print('raspagem_dados executado com sucesso:')
+			self.raspagem_dados()
+			print('raspagem_dados executada com sucesso:')
 			#	8. Clica no botão se existir, se não quebra o laço
 			sleep(2)
-			botao_existe = self.prox_pag()
+			botao_prox_pag = self.prox_pag()
 			sleep(5)
 
 		#	9. Criar a tabela com todos anúncios
@@ -94,11 +93,11 @@ class WebScraping():
 
 	def identifica_anuncio(self):
 		# Identificação do atributo raiz do anúncio
-		return self.site.findAll('div', attrs={'itemprop': 'itemListElement'})
+		self.hospedagens = self.site.findAll('div', attrs={'itemprop': 'itemListElement'})
 
-	def raspagem_dados(self, hospedagens):     
+	def raspagem_dados(self):     
 		# Automação da busca das hospedagens 
-		for hospedagem in hospedagens:
+		for hospedagem in self.hospedagens:
 		
 			hospedagem_descricao = hospedagem.find('div', class_='t1jojoys dir dir-ltr').get_text()
 			hospedagem_detalhes = hospedagem.find('span', class_='t6mzqp7 dir dir-ltr').get_text()
@@ -140,6 +139,7 @@ class WebScraping():
 				return False
 			sleep(2)
 			next_button.click()
+			print('Seguindo para próxima página:')
 			return True
 		except Exception as e:
 			print(e)
